@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Graphline.  If not, see <http://www.gnu.org/licenses/>.
 
-MAINTAINERCLEANFILES = aclocal.m4 config.guess config.sub configure depcomp install-sh ltmain.sh Makefile.in missing
+MAINTAINERCLEANFILES = aclocal.m4 config.guess config.sub configure depcomp install-sh ltmain.sh Makefile.in missing src/config.h.in~
 EXTRA_DIST = autogen.sh Doxyfile
 AUTOMAKE_OPTIONS = foreign
 
