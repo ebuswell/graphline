@@ -25,6 +25,7 @@
 #include <glib.h>
 #include <stdbool.h>
 #include <atomickit/atomic-list.h>
+#include <atomickit/atomic-types.h>
 
 struct gln_graph {
     size_t buffer_size;
@@ -33,11 +34,10 @@ struct gln_graph {
 };
 
 struct gln_graph *gln_create_graph(size_t buffer_size);
-int gln_destroy_graph(struct gln_graph *graph);
-/* call these at the start or end of processing, as appropriate */
-void gln_reset_graph(struct gln_graph *graph);
-void gln_start_processing(struct gln_graph *graph);
-void gln_finish_processing(struct gln_graph *graph);
+void gln_destroy_graph(struct gln_graph *graph);
+char *gln_graph_to_string(struct gln_graph *graph);
+/* call this at the start or end of processing, as appropriate */
+int gln_reset_graph(struct gln_graph *graph);
 
 typedef int (*gln_process_fp_t)(void *);
 
@@ -50,7 +50,8 @@ struct gln_node {
 };
 
 struct gln_node *gln_create_node(struct gln_graph *graph, gln_process_fp_t process, void *arg);
-int gln_destroy_node(struct gln_node *node);
+void gln_destroy_node(struct gln_node *node);
+char *gln_node_to_string(struct gln_node *node);
 
 enum gln_socket_direction {
     INPUT,
@@ -71,9 +72,10 @@ struct gln_socket {
 
 struct gln_socket *gln_create_socket(struct gln_node *node,
 				     enum gln_socket_direction direction);
-int gln_destroy_socket(struct gln_socket *socket);
+void gln_destroy_socket(struct gln_socket *socket);
+char *gln_socket_to_string(struct gln_socket *socket);
 int gln_socket_connect(struct gln_socket *socket, struct gln_socket *other);
-int gln_socket_disconnect(struct gln_socket *socket);
+void gln_socket_disconnect(struct gln_socket *socket);
 /* only use this within the process callback */
 void *gln_socket_get_buffer(struct gln_socket *socket);
 

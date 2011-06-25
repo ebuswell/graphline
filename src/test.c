@@ -28,7 +28,7 @@
 #define CHECKING(function)			\
     printf("Checking " #function "...")		\
 
-#define OK()					\
+#define OK()							\
     printf("OK\n")
 
 #define CHECK_NULL(obj)				\
@@ -128,6 +128,7 @@ int main(int argc, char **argv) {
     int r;
     char *result;
 
+    setbuf(stdout, NULL);
     CHECKING(gln_create_graph);
     graph = gln_create_graph(10);
     if(graph == NULL) {
@@ -178,8 +179,11 @@ int main(int argc, char **argv) {
     CHECK_R();
     OK();
 
-    CHECKING(gln_start_processing);
-    gln_start_processing(graph);
+    CHECKING(gln_graph_to_string);
+    char *str = gln_graph_to_string(graph);
+    CHECK_NULL(str);
+    printf("%s\n", str);
+    free(str);
     OK();
 
     CHECKING(gln_socket_get_buffer);
@@ -192,49 +196,41 @@ int main(int argc, char **argv) {
     OK();
 
     CHECKING(gln_reset_graph);
-    gln_reset_graph(graph);
+    r = gln_reset_graph(graph);
+    CHECK_R();
     OK();
-
-    CHECKING(gln_finish_processing);
-    gln_finish_processing(graph);
-    OK();
-
 
     CHECKING(gln_socket_disconnect);
 
-    r = gln_socket_disconnect(itp.in1);
-    CHECK_R();
+    gln_socket_disconnect(itp.in1);
 
-    gln_start_processing(graph);
     result = (char *) gln_socket_get_buffer(in);
     CHECK_NULL(result);
     if(memcmp(result, "\0A\0B\0C\0D\0E", 10) != 0) {
 	printf("Error: unexpected result: %.10s\n", result);
 	exit(1);
     }
-    gln_reset_graph(graph);
-    gln_finish_processing(graph);
+    r = gln_reset_graph(graph);
+    CHECK_R();
 
     r = gln_socket_connect(ag.out, itp.in1);
     CHECK_R();
 
     OK();
 
-    
+
     CHECKING(gln_destroy_socket);
 
-    r = gln_destroy_socket(uc.out);
-    CHECK_R();
+    gln_destroy_socket(uc.out);
 
-    gln_start_processing(graph);
     result = (char *) gln_socket_get_buffer(in);
     CHECK_NULL(result);
     if(memcmp(result, "a\0b\0c\0d\0e\0", 10) != 0) {
 	printf("Error: unexpected result: %.10s\n", result);
 	exit(1);
     }
-    gln_reset_graph(graph);
-    gln_finish_processing(graph);
+    r = gln_reset_graph(graph);
+    CHECK_R();
 
     uc.out = gln_create_socket(uc.node, OUTPUT);
     CHECK_NULL(uc.out);
@@ -246,24 +242,21 @@ int main(int argc, char **argv) {
 
     CHECKING(gln_destroy_node);
 
-    r = gln_destroy_node(uc.node);
-    CHECK_R();
+    gln_destroy_node(uc.node);
 
-    gln_start_processing(graph);
     result = (char *) gln_socket_get_buffer(in);
     CHECK_NULL(result);
     if(memcmp(result, "a\0b\0c\0d\0e\0", 10) != 0) {
 	printf("Error: unexpected result: %.10s\n", result);
 	exit(1);
     }
-    gln_reset_graph(graph);
-    gln_finish_processing(graph);
+    r = gln_reset_graph(graph);
+    CHECK_R();
 
     OK();
 
     CHECKING(gln_destroy_graph);
-    r = gln_destroy_graph(graph);
-    CHECK_R();
+    gln_destroy_graph(graph);
     OK();
 
     exit(0);

@@ -7,5 +7,5 @@ Name: graphline
 Requires: atomickit, glib-2.0
 Description: Graphline: simple and extensible pipelining
 Version: @GRAPHLINE_VERSION@
-Libs: -latomickit -lglib -lpthread -lgraphline
+Libs: -latomickit -lglib-2.0 -lpthread -lgraphline
 Cflags: -I${includedir}
