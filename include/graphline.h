@@ -29,15 +29,16 @@
 
 struct gln_graph {
     size_t buffer_size;
+    size_t buffer_nmemb;
     GTrashStack *buffer_heap;
     atomic_list_t nodes;
 };
 
-struct gln_graph *gln_create_graph(size_t buffer_size);
-void gln_destroy_graph(struct gln_graph *graph);
+int gln_graph_init(struct gln_graph *graph, size_t buffer_nmemb, size_t buffer_memb_size);
+void gln_graph_destroy(struct gln_graph *graph);
 char *gln_graph_to_string(struct gln_graph *graph);
 /* call this at the start or end of processing, as appropriate */
-int gln_reset_graph(struct gln_graph *graph);
+int gln_graph_reset(struct gln_graph *graph);
 
 typedef int (*gln_process_fp_t)(void *);
 
@@ -49,8 +50,8 @@ struct gln_node {
     atomic_list_t sockets;
 };
 
-struct gln_node *gln_create_node(struct gln_graph *graph, gln_process_fp_t process, void *arg);
-void gln_destroy_node(struct gln_node *node);
+int gln_node_init(struct gln_node *node, struct gln_graph *graph, gln_process_fp_t process, void *arg);
+void gln_node_destroy(struct gln_node *node);
 char *gln_node_to_string(struct gln_node *node);
 
 enum gln_socket_direction {
@@ -70,13 +71,15 @@ struct gln_socket {
     void *buffer;
 };
 
-struct gln_socket *gln_create_socket(struct gln_node *node,
-				     enum gln_socket_direction direction);
-void gln_destroy_socket(struct gln_socket *socket);
+int gln_socket_init(struct gln_socket *socket, struct gln_node *node,
+		    enum gln_socket_direction direction);
+void gln_socket_destroy(struct gln_socket *socket);
 char *gln_socket_to_string(struct gln_socket *socket);
 int gln_socket_connect(struct gln_socket *socket, struct gln_socket *other);
 void gln_socket_disconnect(struct gln_socket *socket);
 /* only use this within the process callback */
 void *gln_socket_get_buffer(struct gln_socket *socket);
+void *gln_socket_alloc_buffer(struct gln_socket *socket);
+void gln_socket_reset(struct gln_socket *socket);
 
 #endif /* ! GRAPHLINE_H */

@@ -29,7 +29,7 @@
 #include <string.h>
 #include <stdio.h>
 
-static char *address_to_string(void *thing, int indentlevel) {
+static char *address_to_string(void *thing, int indentlevel __attribute__((unused))) {
     char *str = alloca(19);
     if(str == NULL) {
 	return NULL;
@@ -324,48 +324,31 @@ char *gln_graph_to_string(struct gln_graph *graph) {
     return ret;
 }
 
-struct gln_graph *gln_create_graph(size_t buffer_size) {
-    struct gln_graph *graph = malloc(sizeof(struct gln_graph));
-    if(graph == NULL) {
-	return NULL;
-    }
-    graph->buffer_size = buffer_size;
+int gln_graph_init(struct gln_graph *graph, size_t buffer_nmemb, size_t buffer_memb_size) {
+    graph->buffer_size = buffer_nmemb * buffer_memb_size;
+    graph->buffer_nmemb = buffer_nmemb;
     int r;
     r = atomic_list_init(&graph->nodes);
     if(r != 0) {
-	free(graph);
-	return NULL;
+	return r;
     }
     graph->buffer_heap = NULL;
-    return graph;
+    return 0;
 }
 
-void gln_destroy_graph(struct gln_graph *graph) {
-    while(1) {
-	struct gln_node *node = (struct gln_node *) atomic_list_last(&graph->nodes);
-	if(node == ALST_EMPTY) {
-	    break;
-	}
-	gln_destroy_node(node);
-    }
+void gln_graph_destroy(struct gln_graph *graph) {
     atomic_list_destroy(&graph->nodes);
     void *buffer;
     while((buffer = g_trash_stack_pop(&graph->buffer_heap)) != NULL) {
 	free(buffer);
     }
-    free(graph);
 }
 
-struct gln_node *gln_create_node(struct gln_graph *graph, gln_process_fp_t process, void *arg) {
-    struct gln_node *node = malloc(sizeof(struct gln_node));
-    if(node == NULL) {
-	return NULL;
-    }
+int gln_node_init(struct gln_node *node, struct gln_graph *graph, gln_process_fp_t process, void *arg) {
     int r;
     r = atomic_list_init(&node->sockets);
     if(r != 0) {
-	free(node);
-	return NULL;
+	return r;
     }
     node->graph = graph;
     node->process = process;
@@ -373,39 +356,25 @@ struct gln_node *gln_create_node(struct gln_graph *graph, gln_process_fp_t proce
     r = atomic_list_push(&graph->nodes, node);
     if(r != 0) {
 	atomic_list_destroy(&node->sockets);
-	free(node);
-	return NULL;
+	return r;
     }
-    return node;
+    return 0;
 }
 
-void gln_destroy_node(struct gln_node *node) {
-    while(1) {
-	struct gln_socket *socket = (struct gln_socket *) atomic_list_last(&node->sockets);
-	if(socket == ALST_EMPTY) {
-	    break;
-	}
-	gln_destroy_socket(socket);
-    }
+void gln_node_destroy(struct gln_node *node) {
     atomic_list_remove_by_value(&node->graph->nodes, node);
     atomic_list_destroy(&node->sockets);
-    free(node);
 }
 
-struct gln_socket *gln_create_socket(struct gln_node *node,
-				     enum gln_socket_direction direction) {
-    struct gln_socket *socket = malloc(sizeof(struct gln_socket));
-    if(socket == NULL) {
-	return NULL;
-    }
+int gln_socket_init(struct gln_socket *socket, struct gln_node *node,
+		    enum gln_socket_direction direction) {
     int r;
     if(direction == INPUT) {
 	atomic_ptr_set(&socket->other.ptr, NULL);
     } else {
 	r = atomic_list_init(&socket->other.list);
 	if(r != 0) {
-	    free(socket);
-	    return NULL;
+	    return r;
 	}
     }
     socket->node = node;
@@ -417,27 +386,24 @@ struct gln_socket *gln_create_socket(struct gln_node *node,
 	if(direction == OUTPUT) {
 	    atomic_list_destroy(&socket->other.list);
 	}
-	free(socket);
-	return NULL;
+	return r;
     }
-    return socket;
+    return 0;
 }
 
 #define MARK_BUFFER(b) ((void *) (((intptr_t) (b)) | ((intptr_t) 1)))
 #define UNMARK_BUFFER(b) ((void *) (((intptr_t) (b)) & ~((intptr_t) 1)))
 #define BUFFER_MARKED(b) ((void *) (((intptr_t) (b)) & ((intptr_t) 1)))
 
-void gln_destroy_socket(struct gln_socket *socket) {
+void gln_socket_destroy(struct gln_socket *socket) {
     gln_socket_disconnect(socket);
     atomic_list_remove_by_value(&socket->node->sockets, socket);
     if(socket->direction == OUTPUT) {
 	atomic_list_destroy(&socket->other.list);
     }
-    if((socket->buffer != NULL)
-       && (BUFFER_MARKED(socket->buffer))) {
-	g_trash_stack_push(&socket->graph->buffer_heap, socket->buffer);
+    if(BUFFER_MARKED(socket->buffer)) {
+	g_trash_stack_push(&socket->graph->buffer_heap, UNMARK_BUFFER(socket->buffer));
     }
-    free(socket);
 }
 
 int gln_socket_connect(struct gln_socket *output, struct gln_socket *input) {
@@ -487,7 +453,7 @@ void gln_socket_disconnect(struct gln_socket *socket) {
     }
 }
 
-int gln_reset_graph(struct gln_graph *graph) {
+int gln_graph_reset(struct gln_graph *graph) {
     /* gather up all buffers */
     int r;
     atomic_iterator_t i;
@@ -501,15 +467,11 @@ int gln_reset_graph(struct gln_graph *graph) {
 	r = atomic_iterator_init(&node->sockets, &j);
 	if(r != 0) {
 	    atomic_iterator_destroy(&graph->nodes, &i);
-	    atomic_iterator_destroy(&node->sockets, &j);
 	    return r;
 	}
 	struct gln_socket *socket;
 	while((socket = (struct gln_socket *) atomic_iterator_next(&node->sockets, &j)) != ALST_EMPTY) {
-	    if(BUFFER_MARKED(socket->buffer)) {
-		g_trash_stack_push(&graph->buffer_heap, UNMARK_BUFFER(socket->buffer));
-	    }
-	    socket->buffer = NULL;
+	    gln_socket_reset(socket);
 	}
 	atomic_iterator_destroy(&node->sockets, &j);
     }
@@ -517,27 +479,39 @@ int gln_reset_graph(struct gln_graph *graph) {
     return 0;
 }
 
-static void *gln_graph_get_buffer(struct gln_graph *graph) {
+static void *gln_graph_alloc_buffer(struct gln_graph *graph) {
     void *buffer = g_trash_stack_pop(&graph->buffer_heap);
     if(buffer == NULL) {
 	buffer = malloc(graph->buffer_size);
     }
-    memset(buffer, 0, graph->buffer_size);
     return buffer;
+}
+
+void *gln_socket_alloc_buffer(struct gln_socket *socket) {
+    if(!BUFFER_MARKED(socket->buffer)) {
+	socket->buffer = gln_graph_alloc_buffer(socket->graph);
+	if(socket->buffer == NULL) {
+	    return NULL;
+	}
+	socket->buffer = MARK_BUFFER(socket->buffer);
+    }
+    memset(UNMARK_BUFFER(socket->buffer), 0, socket->graph->buffer_size);
+    return UNMARK_BUFFER(socket->buffer);
 }
 
 void *gln_socket_get_buffer(struct gln_socket *socket) {
     if(socket->buffer == NULL) {
 	if(socket->direction == OUTPUT) {
-	    socket->buffer = gln_graph_get_buffer(socket->graph);
+	    socket->buffer = gln_graph_alloc_buffer(socket->graph);
 	    if(socket->buffer == NULL) {
 		return NULL;
 	    }
+	    memset(socket->buffer, 0, socket->graph->buffer_size);
 	    socket->buffer = MARK_BUFFER(socket->buffer);
 	} else { /* INPUT */
 	    struct gln_socket *other = atomic_ptr_read(&socket->other.ptr);
 	    if(other == NULL) {
-		socket->buffer = gln_graph_get_buffer(socket->graph);
+		socket->buffer = gln_graph_alloc_buffer(socket->graph);
 		if(socket->buffer == NULL) {
 		    return NULL;
 		}
@@ -554,17 +528,23 @@ void *gln_socket_get_buffer(struct gln_socket *socket) {
 		    if(other->buffer != NULL) {
 			socket->buffer = UNMARK_BUFFER(other->buffer);
 		    } else {
-			socket->buffer = gln_graph_get_buffer(socket->graph);
+			socket->buffer = gln_graph_alloc_buffer(socket->graph);
 			if(socket->buffer == NULL) {
 			    return NULL;
 			}
 			memset(socket->buffer, 0, socket->graph->buffer_size);
-			other->buffer = socket->buffer;
-			socket->buffer = MARK_BUFFER(socket->buffer);
+			other->buffer = MARK_BUFFER(socket->buffer);
 		    }
 		}
 	    }
 	}
     }
     return UNMARK_BUFFER(socket->buffer);
+}
+
+void gln_socket_reset(struct gln_socket *socket) {
+    if(BUFFER_MARKED(socket->buffer)) {
+	g_trash_stack_push(&socket->graph->buffer_heap, UNMARK_BUFFER(socket->buffer));
+    }
+    socket->buffer = NULL;
 }
