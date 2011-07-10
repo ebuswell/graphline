@@ -79,6 +79,9 @@ int gln_socket_connect(struct gln_socket *socket, struct gln_socket *other);
 void gln_socket_disconnect(struct gln_socket *socket);
 /* only use this within the process callback */
 void *gln_socket_get_buffer(struct gln_socket *socket);
+static inline int gln_socket_ready(struct gln_socket *socket) {
+    return socket->buffer != NULL;
+}
 void *gln_socket_alloc_buffer(struct gln_socket *socket);
 void gln_socket_reset(struct gln_socket *socket);
 
