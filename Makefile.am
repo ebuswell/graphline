@@ -1,13 +1,12 @@
 # Makefile.am
 # 
-# Copyright 2011 Evan Buswell
+# Copyright 2013 Evan Buswell
 # 
 # This file is part of Graphline.
 # 
 # Graphline is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 2 of the License, or
-# (at your option) any later version.
+# the Free Software Foundation, version 2.
 # 
 # Graphline is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,7 +24,7 @@ lib_LTLIBRARIES = libgraphline.la
 libgraphline_la_SOURCES = src/graphline.c
 libgraphline_la_LIBADD = $(ATOMICKIT_LIBS)
 libgraphline_la_LDFLAGS = -L$(libdir) -export-dynamic -version_info @VERSION_INFO@
-libgraphline_la_CFLAGS = $(ATOMICKIT_CFLAGS) -O0 -g3 -Wall -Wextra -Iinclude
+libgraphline_la_CFLAGS = $(CFLAGS) $(ATOMICKIT_CFLAGS) -O0 -g3 -Wall -Wextra -Iinclude
 libgraphlineincludedir = $(includedir)
 libgraphlineinclude_HEADERS = include/graphline.h
 
@@ -36,5 +35,5 @@ check_PROGRAMS = test
 test_SOURCES = src/test.c
 test_LDADD = $(ATOMICKIT_LIBS) -lgraphline
 test_LDFLAGS = $(LD_FLAGS) -rpath $(libdir)
-test_CFLAGS = $(ATOMICKIT_CFLAGS) -O0 -g3 -Wall -Wextra -Iinclude
+test_CFLAGS = $(CFLAGS) $(ATOMICKIT_CFLAGS) -O0 -g3 -Wall -Wextra -Iinclude
 TESTS = test
