@@ -1,7 +1,7 @@
 /*
  * graphline.h
  * 
- * Copyright 2011 Evan Buswell
+ * Copyright 2013 Evan Buswell
  * 
  * This file is part of Graphline.
  * 
@@ -22,67 +22,76 @@
 #ifndef GRAPHLINE_H
 #define GRAPHLINE_H
 
-#include <glib.h>
-#include <stdbool.h>
-#include <atomickit/atomic-list.h>
-#include <atomickit/atomic-types.h>
+#include <atomickit/atomic.h>
+#include <atomickit/atomic-rcp.h>
+#include <atomickit/atomic-queue.h>
+#include <atomickit/atomic-txn.h>
 
 struct gln_graph {
-    size_t buffer_size;
-    size_t buffer_nmemb;
-    GTrashStack *buffer_heap;
-    atomic_list_t nodes;
+    struct arcp_region_header header;
+    arcp_t nodes;
+    aqueue_t proc_queue;
 };
 
-int gln_graph_init(struct gln_graph *graph, size_t buffer_nmemb, size_t buffer_memb_size);
+int gln_graph_init(struct gln_graph *graph, void (*destroy)(struct gln_graph *));
 void gln_graph_destroy(struct gln_graph *graph);
-char *gln_graph_to_string(struct gln_graph *graph);
-/* call this at the start or end of processing, as appropriate */
 int gln_graph_reset(struct gln_graph *graph);
 
-typedef int (*gln_process_fp_t)(void *);
+struct gln_node;
 
-struct gln_node {
-    struct gln_graph *graph;
-    gln_process_fp_t process;
-    void *arg;
+typedef int (*gln_process_fp_t)(struct gln_node *);
 
-    atomic_list_t sockets;
+enum gln_node_state {
+    GLNN_READY,
+    GLNN_PENDING,
+    GLNN_ERROR,
+    GLNN_FINISHED
 };
 
-int gln_node_init(struct gln_node *node, struct gln_graph *graph, gln_process_fp_t process, void *arg);
-void gln_node_destroy(struct gln_node *node);
-char *gln_node_to_string(struct gln_node *node);
+struct gln_node {
+    struct arcp_region_header header;
+    void (*destroy)(struct gln_node *);
+    arcp_t graph;
+    arcp_t sockets;
+    gln_process_fp_t process;
+
+    volatile atomic_int state;
+};
+
+int gln_node_init(struct gln_node *node, struct gln_graph *graph, gln_process_fp_t process, void (*destroy)(struct gln_node *));
+int gln_node_unlink(struct gln_node *node);
 
 enum gln_socket_direction {
-    INPUT,
-    OUTPUT
+    GLNS_INPUT,
+    GLNS_OUTPUT
 };
 
 struct gln_socket {
-    struct gln_graph *graph;
-    struct gln_node *node;
+    struct arcp_region_header header;
+    arcp_t graph;
+    arcp_t node;
+    void (*destroy)(struct gln_socket *);
     enum gln_socket_direction direction;
 
-    union {
-	atomic_ptr_t ptr;
-	atomic_list_t list;
-    } other;
-    void *buffer;
+    atxn_t other;
+    arcp_t buffer;
 };
 
 int gln_socket_init(struct gln_socket *socket, struct gln_node *node,
-		    enum gln_socket_direction direction);
-void gln_socket_destroy(struct gln_socket *socket);
-char *gln_socket_to_string(struct gln_socket *socket);
+		    enum gln_socket_direction direction, void (*destroy)(struct gln_socket *));
+int gln_socket_unlink(struct gln_socket *socket);
 int gln_socket_connect(struct gln_socket *socket, struct gln_socket *other);
-void gln_socket_disconnect(struct gln_socket *socket);
-/* only use this within the process callback */
-void *gln_socket_get_buffer(struct gln_socket *socket);
-static inline int gln_socket_ready(struct gln_socket *socket) {
-    return socket->buffer != NULL;
-}
-void *gln_socket_alloc_buffer(struct gln_socket *socket);
-void gln_socket_reset(struct gln_socket *socket);
+int gln_socket_disconnect(struct gln_socket *socket);
+
+struct gln_buffer {
+    struct arcp_region_header header;
+    size_t size;
+    uint8_t data[1] __attribute__((aligned(ARCP_ALIGN)));
+};
+
+void *gln_alloc_buffer(struct gln_socket *socket, size_t size);
+
+/* use this to initiate processing */
+int gln_get_buffers(struct gln_socket **sockets, void **buffers, int count);
 
 #endif /* ! GRAPHLINE_H */

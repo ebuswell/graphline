@@ -44,7 +44,6 @@ AC_PROG_CC
 AC_PROG_LIBTOOL
 
 # Checks for libraries.
-PKG_CHECK_MODULES([GLIB2], [glib-2.0], [HAVE_GLIB=true], [AC_MSG_ERROR([glib is required to build AC_PACKAGE_NAME])])
 PKG_CHECK_MODULES([ATOMICKIT], [atomickit], [HAVE_ATOMICKIT=true], [AC_MSG_ERROR([atomickit is required to build AC_PACKAGE_NAME])])
 
 # Checks for language features.
