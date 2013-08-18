@@ -214,8 +214,7 @@ int main(int argc __attribute__((unused)), char **argv __attribute__((unused))) 
     OK();
 
     CHECKING(gln_graph_reset);
-    r = gln_graph_reset(&graph);
-    CHECK_R();
+    gln_graph_reset(&graph);
     OK();
 
     CHECKING(gln_socket_disconnect);
@@ -230,8 +229,7 @@ int main(int argc __attribute__((unused)), char **argv __attribute__((unused))) 
 	printf("Error: unexpected result: %.10s\n", result);
 	exit(1);
     }
-    r = gln_graph_reset(&graph);
-    CHECK_R();
+    gln_graph_reset(&graph);
 
     r = gln_socket_connect(&ag.out, &itp.in1);
     CHECK_R();

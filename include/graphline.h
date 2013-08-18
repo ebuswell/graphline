@@ -28,13 +28,13 @@
 
 struct gln_graph {
     struct arcp_region_header header;
+    void (*destroy)(struct gln_graph *);
     arcp_t nodes;
     aqueue_t proc_queue;
 };
 
 int gln_graph_init(struct gln_graph *graph, void (*destroy)(struct gln_graph *));
-void gln_graph_destroy(struct gln_graph *graph);
-int gln_graph_reset(struct gln_graph *graph);
+void gln_graph_reset(struct gln_graph *graph);
 
 struct gln_node;
 
@@ -50,8 +50,7 @@ enum gln_node_state {
 struct gln_node {
     struct arcp_region_header header;
     void (*destroy)(struct gln_node *);
-    arcp_t graph;
-    arcp_t sockets;
+    struct gln_graph *graph;
     gln_process_fp_t process;
 
     volatile atomic_int state;
@@ -67,9 +66,8 @@ enum gln_socket_direction {
 
 struct gln_socket {
     struct arcp_region_header header;
-    arcp_t graph;
-    arcp_t node;
     void (*destroy)(struct gln_socket *);
+    struct gln_node *node;
     enum gln_socket_direction direction;
 
     atxn_t other;
@@ -78,7 +76,6 @@ struct gln_socket {
 
 int gln_socket_init(struct gln_socket *socket, struct gln_node *node,
 		    enum gln_socket_direction direction, void (*destroy)(struct gln_socket *));
-int gln_socket_unlink(struct gln_socket *socket);
 int gln_socket_connect(struct gln_socket *socket, struct gln_socket *other);
 int gln_socket_disconnect(struct gln_socket *socket);
 
@@ -92,5 +89,8 @@ void *gln_alloc_buffer(struct gln_socket *socket, size_t size);
 
 /* use this to initiate processing */
 int gln_get_buffers(struct gln_socket **sockets, void **buffers, int count);
+
+/* does some work */
+void gln_process(struct gln_graph *graph);
 
 #endif /* ! GRAPHLINE_H */
