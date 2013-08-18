@@ -28,12 +28,12 @@
 
 struct gln_graph {
     struct arcp_region_header header;
-    void (*destroy)(struct gln_graph *);
     arcp_t nodes;
     aqueue_t proc_queue;
 };
 
 int gln_graph_init(struct gln_graph *graph, void (*destroy)(struct gln_graph *));
+void gln_graph_destroy(struct gln_graph *graph);
 void gln_graph_reset(struct gln_graph *graph);
 
 struct gln_node;
@@ -49,7 +49,6 @@ enum gln_node_state {
 
 struct gln_node {
     struct arcp_region_header header;
-    void (*destroy)(struct gln_node *);
     struct gln_graph *graph;
     gln_process_fp_t process;
 
@@ -57,6 +56,7 @@ struct gln_node {
 };
 
 int gln_node_init(struct gln_node *node, struct gln_graph *graph, gln_process_fp_t process, void (*destroy)(struct gln_node *));
+void gln_node_destroy(struct gln_node *node);
 int gln_node_unlink(struct gln_node *node);
 
 enum gln_socket_direction {
@@ -66,7 +66,6 @@ enum gln_socket_direction {
 
 struct gln_socket {
     struct arcp_region_header header;
-    void (*destroy)(struct gln_socket *);
     struct gln_node *node;
     enum gln_socket_direction direction;
 
@@ -76,6 +75,7 @@ struct gln_socket {
 
 int gln_socket_init(struct gln_socket *socket, struct gln_node *node,
 		    enum gln_socket_direction direction, void (*destroy)(struct gln_socket *));
+void gln_socket_destroy(struct gln_socket *socket);
 int gln_socket_connect(struct gln_socket *socket, struct gln_socket *other);
 int gln_socket_disconnect(struct gln_socket *socket);
 

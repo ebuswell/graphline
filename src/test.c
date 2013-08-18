@@ -151,40 +151,40 @@ int main(int argc __attribute__((unused)), char **argv __attribute__((unused))) 
 
     setbuf(stdout, NULL);
     CHECKING(gln_graph_init);
-    r = gln_graph_init(&graph, NULL);
+    r = gln_graph_init(&graph, gln_graph_destroy);
     CHECK_R();
     OK();
 
     CHECKING(gln_node_init);
     struct alphabetgenerator ag;
-    r = gln_node_init(&ag.node, &graph, (gln_process_fp_t) alphabetgenerator_f, NULL);
+    r = gln_node_init(&ag.node, &graph, (gln_process_fp_t) alphabetgenerator_f, gln_node_destroy);
     CHECK_R();
     struct uppercaser uc;
-    r = gln_node_init(&uc.node, &graph, (gln_process_fp_t) uppercaser_f, NULL);
+    r = gln_node_init(&uc.node, &graph, (gln_process_fp_t) uppercaser_f, gln_node_destroy);
     CHECK_R();
     struct interpolator itp;
-    r = gln_node_init(&itp.node, &graph, (gln_process_fp_t) interpolate_f, NULL);
+    r = gln_node_init(&itp.node, &graph, (gln_process_fp_t) interpolate_f, gln_node_destroy);
     CHECK_R();
     struct gln_node self;
-    r = gln_node_init(&self, &graph, NULL, NULL);
+    r = gln_node_init(&self, &graph, NULL, gln_node_destroy);
     CHECK_R();
     OK();
 
     CHECKING(gln_socket_init);
-    r = gln_socket_init(&ag.out, &ag.node, GLNS_OUTPUT, NULL);
+    r = gln_socket_init(&ag.out, &ag.node, GLNS_OUTPUT, gln_socket_destroy);
     CHECK_R();
-    r = gln_socket_init(&uc.in, &uc.node, GLNS_INPUT, NULL);
+    r = gln_socket_init(&uc.in, &uc.node, GLNS_INPUT, gln_socket_destroy);
     CHECK_R();
-    r = gln_socket_init(&uc.out, &uc.node, GLNS_OUTPUT, NULL);
+    r = gln_socket_init(&uc.out, &uc.node, GLNS_OUTPUT, gln_socket_destroy);
     CHECK_R();
-    r = gln_socket_init(&itp.in1, &itp.node, GLNS_INPUT, NULL);
+    r = gln_socket_init(&itp.in1, &itp.node, GLNS_INPUT, gln_socket_destroy);
     CHECK_R();
-    r = gln_socket_init(&itp.in2, &itp.node, GLNS_INPUT, NULL);
+    r = gln_socket_init(&itp.in2, &itp.node, GLNS_INPUT, gln_socket_destroy);
     CHECK_R();
-    r = gln_socket_init(&itp.out, &itp.node, GLNS_OUTPUT, NULL);
+    r = gln_socket_init(&itp.out, &itp.node, GLNS_OUTPUT, gln_socket_destroy);
     CHECK_R();
     struct gln_socket in;
-    r = gln_socket_init(&in, &self, GLNS_INPUT, NULL);
+    r = gln_socket_init(&in, &self, GLNS_INPUT, gln_socket_destroy);
     CHECK_R();
     OK();
 

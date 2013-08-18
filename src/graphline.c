@@ -39,12 +39,9 @@ void *alloca(size_t);
 #include <errno.h>
 #include "graphline.h"
 
-void __destroy_graph(struct gln_graph *graph) {
+void gln_graph_destroy(struct gln_graph *graph) {
     arcp_store(&graph->nodes, NULL);
     aqueue_destroy(&graph->proc_queue);
-    if(graph->destroy != NULL) {
-	graph->destroy(graph);
-    }
 }
 
 int gln_graph_init(struct gln_graph *graph, void (*destroy)(struct gln_graph *)) {
@@ -59,8 +56,7 @@ int gln_graph_init(struct gln_graph *graph, void (*destroy)(struct gln_graph *))
     }
     arcp_init(&graph->nodes, (struct arcp_region *) empty_array);
     arcp_release((struct arcp_region *) empty_array);
-    graph->destroy = destroy;
-    arcp_region_init((struct arcp_region *) graph, (void (*)(struct arcp_region *)) __destroy_graph);
+    arcp_region_init((struct arcp_region *) graph, (void (*)(struct arcp_region *)) destroy);
     return 0;
 }
 
@@ -73,19 +69,15 @@ void gln_graph_reset(struct gln_graph *graph) {
     }
 }
 
-static void __destroy_node(struct gln_node *node) {
+void gln_node_destroy(struct gln_node *node) {
     arcp_release((struct arcp_region *) node->graph);
-    if(node->destroy != NULL) {
-	node->destroy(node);
-    }
 }
 
 int gln_node_init(struct gln_node *node, struct gln_graph *graph, gln_process_fp_t process, void (*destroy)(struct gln_node *)) {
-    node->destroy = destroy;
     node->process = process;
     node->graph = (struct gln_graph *) arcp_incref((struct arcp_region *) graph);
     atomic_init(&node->state, GLNN_READY);
-    arcp_region_init((struct arcp_region *) node, (void (*)(struct arcp_region *)) __destroy_node);
+    arcp_region_init((struct arcp_region *) node, (void (*)(struct arcp_region *)) destroy);
     struct aary *node_list;
     struct aary *new_node_list;
     do {
@@ -113,13 +105,10 @@ int gln_node_unlink(struct gln_node *node) {
     return 0;
 }
 
-static void __destroy_socket(struct gln_socket *socket) {
+void gln_socket_destroy(struct gln_socket *socket) {
     arcp_release((struct arcp_region *) socket->node);
     arcp_store(&socket->buffer, NULL);
     atxn_destroy(&socket->other);
-    if(socket->destroy != NULL) {
-	socket->destroy(socket);
-    }
 }
 
 int gln_socket_init(struct gln_socket *socket, struct gln_node *node, 
@@ -141,11 +130,10 @@ int gln_socket_init(struct gln_socket *socket, struct gln_node *node,
 	    return -1;
 	}
     }
-    socket->destroy = destroy;
     socket->node = (struct gln_node *) arcp_incref((struct arcp_region *) node);
     socket->direction = direction;
     arcp_init(&socket->buffer, NULL);
-    arcp_region_init((struct arcp_region *) socket, (void (*)(struct arcp_region *)) __destroy_socket);
+    arcp_region_init((struct arcp_region *) socket, (void (*)(struct arcp_region *)) destroy);
     return 0;
 }
 
