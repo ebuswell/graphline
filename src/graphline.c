@@ -51,12 +51,12 @@ int gln_graph_init(struct gln_graph *graph, void (*destroy)(struct gln_graph *))
     }
     int r = aqueue_init(&graph->proc_queue);
     if(r != 0) {
-	arcp_release((struct arcp_region *) empty_array);
+	arcp_release(empty_array);
 	return -1;
     }
-    arcp_init(&graph->nodes, (struct arcp_region *) empty_array);
-    arcp_release((struct arcp_region *) empty_array);
-    arcp_region_init((struct arcp_region *) graph, (void (*)(struct arcp_region *)) destroy);
+    arcp_init(&graph->nodes, empty_array);
+    arcp_release(empty_array);
+    arcp_region_init(graph, (void (*)(struct arcp_region *)) destroy);
     return 0;
 }
 
@@ -70,24 +70,24 @@ void gln_graph_reset(struct gln_graph *graph) {
 }
 
 void gln_node_destroy(struct gln_node *node) {
-    arcp_release((struct arcp_region *) node->graph);
+    arcp_release(node->graph);
 }
 
 int gln_node_init(struct gln_node *node, struct gln_graph *graph, gln_process_fp_t process, void (*destroy)(struct gln_node *)) {
     node->process = process;
-    node->graph = (struct gln_graph *) arcp_incref((struct arcp_region *) graph);
+    node->graph = (struct gln_graph *) arcp_acquire(graph);
     atomic_init(&node->state, GLNN_READY);
-    arcp_region_init((struct arcp_region *) node, (void (*)(struct arcp_region *)) destroy);
+    arcp_region_init(node, (void (*)(struct arcp_region *)) destroy);
     struct aary *node_list;
     struct aary *new_node_list;
     do {
 	node_list = (struct aary *) arcp_load(&graph->nodes);
-	new_node_list = aary_dup_set_add(node_list, (struct arcp_region *) node);
+	new_node_list = aary_dup_set_add(node_list, node);
 	if(new_node_list == NULL) {
-	    arcp_release((struct arcp_region *) node);
+	    arcp_release(node);
 	    return -1;
 	}
-    } while(!arcp_compare_store_release(&graph->nodes, (struct arcp_region *) node_list, (struct arcp_region *) new_node_list));
+    } while(!arcp_compare_store_release(&graph->nodes, node_list, new_node_list));
     return 0;
 }
 
@@ -96,17 +96,17 @@ int gln_node_unlink(struct gln_node *node) {
     struct aary *new_node_list;
     do {
 	node_list = (struct aary *) arcp_load(&node->graph->nodes);
-	new_node_list = aary_dup_set_remove(node_list, (struct arcp_region *) node);
+	new_node_list = aary_dup_set_remove(node_list, node);
 	if(new_node_list == NULL) {
-	    arcp_release((struct arcp_region *) node);
+	    arcp_release(node);
 	    return -1;
 	}
-    } while(!arcp_compare_store_release(&node->graph->nodes, (struct arcp_region *) node_list, (struct arcp_region *) new_node_list));
+    } while(!arcp_compare_store_release(&node->graph->nodes, node_list, new_node_list));
     return 0;
 }
 
 void gln_socket_destroy(struct gln_socket *socket) {
-    arcp_release((struct arcp_region *) socket->node);
+    arcp_release(socket->node);
     arcp_store(&socket->buffer, NULL);
     atxn_destroy(&socket->other);
 }
@@ -119,9 +119,9 @@ int gln_socket_init(struct gln_socket *socket, struct gln_node *node,
 	if(empty_array == NULL) {
 	    return -1;
 	}
-	r = atxn_init(&socket->other, (struct arcp_region *) empty_array);
+	r = atxn_init(&socket->other, empty_array);
 	if(r != 0) {
-	    arcp_release((struct arcp_region *) empty_array);
+	    arcp_release(empty_array);
 	    return -1;
 	}
     } else {
@@ -130,10 +130,10 @@ int gln_socket_init(struct gln_socket *socket, struct gln_node *node,
 	    return -1;
 	}
     }
-    socket->node = (struct gln_node *) arcp_incref((struct arcp_region *) node);
+    socket->node = (struct gln_node *) arcp_acquire(node);
     socket->direction = direction;
     arcp_init(&socket->buffer, NULL);
-    arcp_region_init((struct arcp_region *) socket, (void (*)(struct arcp_region *)) destroy);
+    arcp_region_init(socket, (void (*)(struct arcp_region *)) destroy);
     return 0;
 }
 
@@ -145,7 +145,7 @@ int gln_socket_connect(struct gln_socket *socket, struct gln_socket *other) {
 	errno = EINVAL;
 	return -1;
     }
-    atxn_handle_t *handle;
+    struct atxn_handle *handle;
 retry_connect:
     handle = atxn_start();
     if(handle == NULL) {
@@ -180,13 +180,13 @@ retry_connect:
 	atxn_abort(handle);
 	return -1;
     }
-    array = aary_dup_set_add(array, (struct arcp_region *) other);
+    array = aary_dup_set_add(array, other);
     if(array == NULL) {
 	atxn_abort(handle);
 	return -1;
     }
-    r = atxn_store(handle, &socket->other, (struct arcp_region *) array);
-    arcp_release((struct arcp_region *) array);
+    r = atxn_store(handle, &socket->other, array);
+    arcp_release(array);
     if(r == ATXN_FAILURE) {
 	atxn_abort(handle);
 	goto retry_connect;
@@ -206,13 +206,13 @@ retry_connect:
 	    atxn_abort(handle);
 	    return -1;
 	}
-	array = aary_dup_set_remove(array, (struct arcp_region *) other);
+	array = aary_dup_set_remove(array, other);
 	if(array == NULL) {
 	    atxn_abort(handle);
 	    return -1;
 	}
-	r = atxn_store(handle, &connected_socket->other, (struct arcp_region *) array);
-	arcp_release((struct arcp_region *) array);
+	r = atxn_store(handle, &connected_socket->other, array);
+	arcp_release(array);
 	if(r == ATXN_FAILURE) {
 	    atxn_abort(handle);
 	    goto retry_connect;
@@ -223,7 +223,7 @@ retry_connect:
     }
 
     /* Set new connected socket */
-    r = atxn_store(handle, &other->other, (struct arcp_region *) socket);
+    r = atxn_store(handle, &other->other, socket);
     if(r == ATXN_FAILURE) {
 	atxn_abort(handle);
 	goto retry_connect;
@@ -244,7 +244,7 @@ retry_connect:
 
 int gln_socket_disconnect(struct gln_socket *socket) {
     if(socket->direction == GLNS_INPUT) {
-	atxn_handle_t *handle;
+	struct atxn_handle *handle;
     retry_disconnect_input:
 	handle = atxn_start();
 	if(handle == NULL) {
@@ -279,13 +279,13 @@ int gln_socket_disconnect(struct gln_socket *socket) {
 	    atxn_abort(handle);
 	    return -1;
 	}
-	array = aary_dup_set_remove(array, (struct arcp_region *) socket);
+	array = aary_dup_set_remove(array, socket);
 	if(array == NULL) {
 	    atxn_abort(handle);
 	    return -1;
 	}
-	r = atxn_store(handle, &connected_socket->other, (struct arcp_region *) array);
-	arcp_release((struct arcp_region *) array);
+	r = atxn_store(handle, &connected_socket->other, array);
+	arcp_release(array);
 	if(r == ATXN_FAILURE) {
 	    atxn_abort(handle);
 	    goto retry_disconnect_input;
@@ -312,7 +312,7 @@ int gln_socket_disconnect(struct gln_socket *socket) {
 	    return -1;
 	}
     } else {
-	atxn_handle_t *handle;
+	struct atxn_handle *handle;
     retry_disconnect_output:
 	handle = atxn_start();
 	if(handle == NULL) {
@@ -356,8 +356,8 @@ int gln_socket_disconnect(struct gln_socket *socket) {
 	    atxn_abort(handle);
 	    return -1;
 	}
-	r = atxn_store(handle, &socket->other, (struct arcp_region *) array);
-	arcp_release((struct arcp_region *) array);
+	r = atxn_store(handle, &socket->other, array);
+	arcp_release(array);
 	if(r == ATXN_FAILURE) {
 	    atxn_abort(handle);
 	    goto retry_disconnect_output;
@@ -379,7 +379,7 @@ int gln_socket_disconnect(struct gln_socket *socket) {
 
 #define GLN_BUFFER_OVERHEAD (offsetof(struct gln_buffer, data))
 
-void __destroy_gln_buffer(struct gln_buffer *buffer) {
+static void __destroy_gln_buffer(struct gln_buffer *buffer) {
     afree(buffer, buffer->size);
 }
 
@@ -390,16 +390,16 @@ void *gln_alloc_buffer(struct gln_socket *socket, size_t size) {
 	return NULL;
     }
     buffer->size = size;
-    arcp_region_init((struct arcp_region *) buffer, (void (*)(struct arcp_region *)) __destroy_gln_buffer);
-    arcp_store(&socket->buffer, (struct arcp_region *) buffer);
-    arcp_release((struct arcp_region *) buffer);
+    arcp_region_init(buffer, (void (*)(struct arcp_region *)) __destroy_gln_buffer);
+    arcp_store(&socket->buffer, buffer);
+    arcp_release(buffer);
     return &buffer->data;
 }
 
 int gln_get_buffers(struct gln_socket **sockets, void **buffers, int count) {
     int i;
     /* Get all connected sockets */
-    atxn_handle_t *handle;
+    struct atxn_handle *handle;
     struct gln_socket **connected_sockets = alloca(sizeof(struct gln_socket *) * count);
 retry_acquire_connections:
     handle = atxn_start();
@@ -439,7 +439,7 @@ retry_acquire_connections:
 	/* Add it to the queue */
 	if(atomic_compare_exchange_strong_explicit(&node->state, &state, GLNN_PENDING,
 						   memory_order_acq_rel, memory_order_relaxed)) {
-	    int r = aqueue_enq(&node->graph->proc_queue, (struct arcp_region *) node);
+	    int r = aqueue_enq(&node->graph->proc_queue, node);
 	    if(r != 0) {
 		atomic_store_explicit(&node->state, GLNN_READY, memory_order_release);
 		atxn_abort(handle);
@@ -472,7 +472,7 @@ retry_acquire_connections:
 		 * but failed. We'll add it insted. */
 		if(atomic_compare_exchange_strong_explicit(&node->state, &state, GLNN_PENDING,
 							   memory_order_acq_rel, memory_order_relaxed)) {
-		    int r = aqueue_enq(&node->graph->proc_queue, (struct arcp_region *) node);
+		    int r = aqueue_enq(&node->graph->proc_queue, node);
 		    if(r != 0) {
 			atomic_store_explicit(&node->state, GLNN_READY, memory_order_release);
 			atxn_abort(handle);
@@ -493,7 +493,7 @@ retry_acquire_connections:
 	    } else {
 		atomic_store_explicit(&next->state, GLNN_FINISHED, memory_order_release);
 	    }
-	    arcp_release((struct arcp_region *) next);
+	    arcp_release(next);
 	}
     }
     /* Now we can load up our buffers */
@@ -504,7 +504,7 @@ retry_acquire_connections:
 	} else {
 	    struct gln_buffer *buf = (struct gln_buffer *) arcp_load_weak(&connected_sockets[i]->buffer);
 	    buffers[i] = buf->data;
-	    arcp_store(&sockets[i]->buffer, (struct arcp_region *) buf);
+	    arcp_store(&sockets[i]->buffer, buf);
 	}
     }
     return 0;
@@ -522,5 +522,5 @@ void gln_process(struct gln_graph *graph) {
     } else {
 	atomic_store_explicit(&next->state, GLNN_FINISHED, memory_order_release);
     }
-    arcp_release((struct arcp_region *) next);
+    arcp_release(next);
 }

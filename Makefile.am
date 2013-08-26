@@ -17,14 +17,14 @@
 # along with Graphline.  If not, see <http://www.gnu.org/licenses/>.
 
 MAINTAINERCLEANFILES = aclocal.m4 config.guess config.sub configure depcomp install-sh ltmain.sh Makefile.in missing src/config.h.in~ compile
-EXTRA_DIST = autogen.sh Doxyfile
+EXTRA_DIST = autogen.sh Doxyfile graphline.pc.in
 AUTOMAKE_OPTIONS = foreign serial-tests subdir-objects
 
 lib_LTLIBRARIES = libgraphline.la
 libgraphline_la_SOURCES = src/graphline.c
 libgraphline_la_LIBADD = $(ATOMICKIT_LIBS)
-libgraphline_la_LDFLAGS = -L$(libdir) -export-dynamic -version_info @VERSION_INFO@
-libgraphline_la_CFLAGS = $(CFLAGS) $(ATOMICKIT_CFLAGS) -O0 -g3 -Wall -Wextra -Iinclude
+libgraphline_la_LDFLAGS = $(LDFLAGS) -L$(libdir) -export-dynamic -version_info @VERSION_INFO@
+libgraphline_la_CFLAGS = $(CFLAGS) $(ATOMICKIT_CFLAGS) -fplan9-extensions -Og -g3 -Wall -Wextra -Wmissing-prototypes -Wredundant-decls -Iinclude
 libgraphlineincludedir = $(includedir)
 libgraphlineinclude_HEADERS = include/graphline.h
 
@@ -35,5 +35,5 @@ check_PROGRAMS = test
 test_SOURCES = src/test.c
 test_LDADD = $(ATOMICKIT_LIBS) -lgraphline
 test_LDFLAGS = $(LD_FLAGS) -rpath $(libdir)
-test_CFLAGS = $(CFLAGS) $(ATOMICKIT_CFLAGS) -O0 -g3 -Wall -Wextra -Iinclude
+test_CFLAGS = $(CFLAGS) $(ATOMICKIT_CFLAGS) -fplan9-extensions -Og -g3 -Wall -Wextra -Wmissing-prototypes -Wredundant-decls -Iinclude
 TESTS = test

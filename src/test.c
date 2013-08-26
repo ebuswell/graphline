@@ -54,7 +54,7 @@ struct alphabetgenerator {
     struct gln_socket out;
 };
 
-int alphabetgenerator_f(struct alphabetgenerator *self) {
+static int alphabetgenerator_f(struct alphabetgenerator *self) {
     char *out_buffer = (char *) gln_alloc_buffer(&self->out, MYBUFSIZ + 1);
     if(out_buffer == NULL)
 	return -1;
@@ -73,7 +73,7 @@ struct uppercaser {
     struct gln_socket out;
 };
 
-int uppercaser_f(struct uppercaser *self) {
+static int uppercaser_f(struct uppercaser *self) {
     char *buffers[1];
     struct gln_socket *sockets[1];
     sockets[0] = &self->in;
@@ -106,7 +106,7 @@ struct interpolator {
     struct gln_socket out;
 };
 
-int interpolate_f(struct interpolator *self) {
+static int interpolate_f(struct interpolator *self) {
     char *buffers[2];
     struct gln_socket *sockets[2];
     sockets[0] = &self->in1;

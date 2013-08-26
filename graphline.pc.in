@@ -8,4 +8,4 @@ Requires: atomickit, glib-2.0
 Description: Graphline: simple and extensible pipelining
 Version: @GRAPHLINE_VERSION@
 Libs: -latomickit -lglib-2.0 -lpthread -lgraphline
-Cflags: -I${includedir}
+Cflags: -fplan9-extensions -I${includedir}

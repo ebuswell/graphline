@@ -27,7 +27,7 @@
 #include <atomickit/atomic-txn.h>
 
 struct gln_graph {
-    struct arcp_region_header header;
+    struct arcp_region;
     arcp_t nodes;
     aqueue_t proc_queue;
 };
@@ -48,7 +48,7 @@ enum gln_node_state {
 };
 
 struct gln_node {
-    struct arcp_region_header header;
+    struct arcp_region;
     struct gln_graph *graph;
     gln_process_fp_t process;
 
@@ -65,7 +65,7 @@ enum gln_socket_direction {
 };
 
 struct gln_socket {
-    struct arcp_region_header header;
+    struct arcp_region;
     struct gln_node *node;
     enum gln_socket_direction direction;
 
@@ -79,10 +79,12 @@ void gln_socket_destroy(struct gln_socket *socket);
 int gln_socket_connect(struct gln_socket *socket, struct gln_socket *other);
 int gln_socket_disconnect(struct gln_socket *socket);
 
+#define GLN_BUFFER_ALIGN 16
+
 struct gln_buffer {
-    struct arcp_region_header header;
+    struct arcp_region;
     size_t size;
-    uint8_t data[1] __attribute__((aligned(ARCP_ALIGN)));
+    uint8_t data[] __attribute__((aligned(GLN_BUFFER_ALIGN)));
 };
 
 void *gln_alloc_buffer(struct gln_socket *socket, size_t size);
