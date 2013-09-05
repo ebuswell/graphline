@@ -34,6 +34,7 @@ struct gln_graph {
 
 int gln_graph_init(struct gln_graph *graph, void (*destroy)(struct gln_graph *));
 void gln_graph_destroy(struct gln_graph *graph);
+struct gln_graph *gln_graph_create(void);
 void gln_graph_reset(struct gln_graph *graph);
 
 struct gln_node;
@@ -49,7 +50,7 @@ enum gln_node_state {
 
 struct gln_node {
     struct arcp_region;
-    struct gln_graph *graph;
+    struct arcp_weakref *graph;
     gln_process_fp_t process;
 
     volatile atomic_int state;
@@ -57,7 +58,7 @@ struct gln_node {
 
 int gln_node_init(struct gln_node *node, struct gln_graph *graph, gln_process_fp_t process, void (*destroy)(struct gln_node *));
 void gln_node_destroy(struct gln_node *node);
-int gln_node_unlink(struct gln_node *node);
+struct gln_node *gln_node_create(struct gln_graph *graph, gln_process_fp_t process);
 
 enum gln_socket_direction {
     GLNS_INPUT,
@@ -66,7 +67,7 @@ enum gln_socket_direction {
 
 struct gln_socket {
     struct arcp_region;
-    struct gln_node *node;
+    struct arcp_weakref *node;
     enum gln_socket_direction direction;
 
     atxn_t other;
@@ -76,6 +77,7 @@ struct gln_socket {
 int gln_socket_init(struct gln_socket *socket, struct gln_node *node,
 		    enum gln_socket_direction direction, void (*destroy)(struct gln_socket *));
 void gln_socket_destroy(struct gln_socket *socket);
+struct gln_socket *gln_socket_create(struct gln_node *node, enum gln_socket_direction direction);
 int gln_socket_connect(struct gln_socket *socket, struct gln_socket *other);
 int gln_socket_disconnect(struct gln_socket *socket);
 
@@ -89,10 +91,12 @@ struct gln_buffer {
 
 void *gln_alloc_buffer(struct gln_socket *socket, size_t size);
 
-/* use this to initiate processing */
-int gln_get_buffers(struct gln_socket **sockets, void **buffers, int count);
+/* use these to initiate processing */
+/* the first is a convenience interface to the second */
+int gln_get_buffers(int count, ...);
+int gln_get_buffer_list(int count, struct gln_socket **sockets, void **buffers);
 
-/* does some work */
-void gln_process(struct gln_graph *graph);
+/* does some work; returns false if there was no work to be done */
+bool gln_process(struct gln_graph *graph);
 
 #endif /* ! GRAPHLINE_H */

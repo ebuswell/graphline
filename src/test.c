@@ -50,12 +50,17 @@
 
 
 struct alphabetgenerator {
-    struct gln_node node;
-    struct gln_socket out;
+    struct gln_node;
+    struct gln_socket *out;
 };
 
+static void alphabetgenerator_destroy(struct alphabetgenerator *self) {
+    arcp_release(self->out);
+    gln_node_destroy(self);
+}
+
 static int alphabetgenerator_f(struct alphabetgenerator *self) {
-    char *out_buffer = (char *) gln_alloc_buffer(&self->out, MYBUFSIZ + 1);
+    char *out_buffer = (char *) gln_alloc_buffer(self->out, MYBUFSIZ + 1);
     if(out_buffer == NULL)
 	return -1;
 
@@ -68,24 +73,28 @@ static int alphabetgenerator_f(struct alphabetgenerator *self) {
 }
 
 struct uppercaser {
-    struct gln_node node;
-    struct gln_socket in;
-    struct gln_socket out;
+    struct gln_node;
+    struct gln_socket *in;
+    struct gln_socket *out;
 };
 
+static void uppercaser_destroy(struct uppercaser *self) {
+    arcp_release(self->in);
+    arcp_release(self->out);
+    gln_node_destroy(self);
+}
+
 static int uppercaser_f(struct uppercaser *self) {
-    char *buffers[1];
-    struct gln_socket *sockets[1];
-    sockets[0] = &self->in;
-    int r = gln_get_buffers(sockets, (void **) buffers, 1);
+    char *in_buffer;
+    int r = gln_get_buffers(1, self->in, &in_buffer);
     if(r != 0) {
 	return r;
     }
-    char *in_buffer = buffers[0];
 
-    char *out_buffer = (char *) gln_alloc_buffer(&self->out, MYBUFSIZ + 1);
-    if(out_buffer == NULL)
+    char *out_buffer = (char *) gln_alloc_buffer(self->out, MYBUFSIZ + 1);
+    if(out_buffer == NULL) {
 	return -1;
+    }
 
     size_t i;
     for(i = 0; i < MYBUFSIZ; i++) {
@@ -100,27 +109,31 @@ static int uppercaser_f(struct uppercaser *self) {
 }
 
 struct interpolator {
-    struct gln_node node;
-    struct gln_socket in1;
-    struct gln_socket in2;
-    struct gln_socket out;
+    struct gln_node;
+    struct gln_socket *in1;
+    struct gln_socket *in2;
+    struct gln_socket *out;
 };
 
+static void interpolator_destroy(struct interpolator *self) {
+    arcp_release(self->in1);
+    arcp_release(self->in2);
+    arcp_release(self->out);
+    gln_node_destroy(self);
+}
+
 static int interpolate_f(struct interpolator *self) {
-    char *buffers[2];
-    struct gln_socket *sockets[2];
-    sockets[0] = &self->in1;
-    sockets[1] = &self->in2;
-    int r = gln_get_buffers(sockets, (void **) buffers, 2);
+    char *in1_buffer;
+    char *in2_buffer;
+    int r = gln_get_buffers(2, self->in1, &in1_buffer, self->in2, &in2_buffer);
     if(r != 0) {
 	return r;
     }
-    char *in1_buffer = buffers[0];
-    char *in2_buffer = buffers[1];
 
-    char *out_buffer = (char *) gln_alloc_buffer(&self->out, MYBUFSIZ + 1);
-    if(out_buffer == NULL)
+    char *out_buffer = (char *) gln_alloc_buffer(self->out, MYBUFSIZ + 1);
+    if(out_buffer == NULL) {
 	return -1;
+    }
 
     size_t i;
     size_t j = 0;
@@ -145,67 +158,62 @@ static int interpolate_f(struct interpolator *self) {
 }
 
 int main(int argc __attribute__((unused)), char **argv __attribute__((unused))) {
-    struct gln_graph graph;
+    struct gln_graph *graph;
     int r;
     char *result;
 
     setbuf(stdout, NULL);
-    CHECKING(gln_graph_init);
-    r = gln_graph_init(&graph, gln_graph_destroy);
-    CHECK_R();
+    CHECKING(gln_graph_create);
+    graph = gln_graph_create();
+    CHECK_NULL(graph);
     OK();
 
     CHECKING(gln_node_init);
     struct alphabetgenerator ag;
-    r = gln_node_init(&ag.node, &graph, (gln_process_fp_t) alphabetgenerator_f, gln_node_destroy);
+    r = gln_node_init(&ag, graph, (gln_process_fp_t) alphabetgenerator_f, (void (*)(struct gln_node *)) alphabetgenerator_destroy);
     CHECK_R();
     struct uppercaser uc;
-    r = gln_node_init(&uc.node, &graph, (gln_process_fp_t) uppercaser_f, gln_node_destroy);
+    r = gln_node_init(&uc, graph, (gln_process_fp_t) uppercaser_f, (void (*)(struct gln_node *)) uppercaser_destroy);
     CHECK_R();
     struct interpolator itp;
-    r = gln_node_init(&itp.node, &graph, (gln_process_fp_t) interpolate_f, gln_node_destroy);
+    r = gln_node_init(&itp, graph, (gln_process_fp_t) interpolate_f, (void (*)(struct gln_node *)) interpolator_destroy);
     CHECK_R();
-    struct gln_node self;
-    r = gln_node_init(&self, &graph, NULL, gln_node_destroy);
+    struct gln_node *self = gln_node_create(graph, NULL);
     CHECK_R();
     OK();
 
-    CHECKING(gln_socket_init);
-    r = gln_socket_init(&ag.out, &ag.node, GLNS_OUTPUT, gln_socket_destroy);
-    CHECK_R();
-    r = gln_socket_init(&uc.in, &uc.node, GLNS_INPUT, gln_socket_destroy);
-    CHECK_R();
-    r = gln_socket_init(&uc.out, &uc.node, GLNS_OUTPUT, gln_socket_destroy);
-    CHECK_R();
-    r = gln_socket_init(&itp.in1, &itp.node, GLNS_INPUT, gln_socket_destroy);
-    CHECK_R();
-    r = gln_socket_init(&itp.in2, &itp.node, GLNS_INPUT, gln_socket_destroy);
-    CHECK_R();
-    r = gln_socket_init(&itp.out, &itp.node, GLNS_OUTPUT, gln_socket_destroy);
-    CHECK_R();
-    struct gln_socket in;
-    r = gln_socket_init(&in, &self, GLNS_INPUT, gln_socket_destroy);
-    CHECK_R();
+    CHECKING(gln_socket_create);
+    ag.out = gln_socket_create(&ag, GLNS_OUTPUT);
+    CHECK_NULL(ag.out);
+    uc.in = gln_socket_create(&uc, GLNS_INPUT);
+    CHECK_NULL(uc.in);
+    uc.out = gln_socket_create(&uc, GLNS_OUTPUT);
+    CHECK_NULL(uc.out);
+    itp.in1 = gln_socket_create(&itp, GLNS_INPUT);
+    CHECK_NULL(itp.in1);
+    itp.in2 = gln_socket_create(&itp, GLNS_INPUT);
+    CHECK_NULL(itp.in2);
+    itp.out = gln_socket_create(&itp, GLNS_OUTPUT);
+    CHECK_NULL(itp.out);
+    struct gln_socket *in;
+    in = gln_socket_create(self, GLNS_INPUT);
+    CHECK_NULL(in);
     OK();
 
     CHECKING(gln_socket_connect);
-    r = gln_socket_connect(&ag.out, &uc.in);
+    r = gln_socket_connect(ag.out, uc.in);
     CHECK_R();
-    r = gln_socket_connect(&ag.out, &itp.in1);
+    r = gln_socket_connect(ag.out, itp.in1);
     CHECK_R();
-    r = gln_socket_connect(&uc.out, &itp.in2);
+    r = gln_socket_connect(uc.out, itp.in2);
     CHECK_R();
-    r = gln_socket_connect(&itp.out, &in);
+    r = gln_socket_connect(itp.out, in);
     CHECK_R();
     OK();
 
     CHECKING(gln_get_buffers);
-    char *buffers[1];
-    struct gln_socket *sockets[1];
-    sockets[0] = &in;
-    r = gln_get_buffers(sockets, (void **) buffers, 1);
+    r = gln_get_buffers(1, in, &result);
     CHECK_R();
-    result = buffers[0];
     CHECK_NULL(result);
     if(memcmp(result, "aAbBcCdDeE", 10) != 0) {
 	printf("Error: unexpected result: %.10s\n", result);
@@ -214,24 +222,23 @@ int main(int argc __attribute__((unused)), char **argv __attribute__((unused))) 
     OK();
 
     CHECKING(gln_graph_reset);
-    gln_graph_reset(&graph);
+    gln_graph_reset(graph);
     OK();
 
     CHECKING(gln_socket_disconnect);
 
-    gln_socket_disconnect(&itp.in1);
+    gln_socket_disconnect(itp.in1);
 
-    r = gln_get_buffers(sockets, (void **) buffers, 1);
+    r = gln_get_buffers(1, in, &result);
     CHECK_R();
-    result = buffers[0];
     CHECK_NULL(result);
     if(memcmp(result, "\0A\0B\0C\0D\0E", 10) != 0) {
 	printf("Error: unexpected result: %.10s\n", result);
 	exit(1);
     }
-    gln_graph_reset(&graph);
+    gln_graph_reset(graph);
 
-    r = gln_socket_connect(&ag.out, &itp.in1);
+    r = gln_socket_connect(ag.out, itp.in1);
     CHECK_R();
 
     OK();
@@ -257,7 +264,7 @@ int main(int argc __attribute__((unused)), char **argv __attribute__((unused))) 
 
     /* OK(); */
 
-    r = gln_socket_connect(&ag.out, &itp.in1);
+    r = gln_socket_connect(ag.out, itp.in1);
     CHECK_R();
 
     /* CHECKING(gln_socket_reset); */
