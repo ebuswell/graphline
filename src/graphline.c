@@ -250,12 +250,19 @@ struct gln_socket *gln_socket_create(struct gln_node *node, enum gln_socket_dire
 }
 
 int gln_socket_connect(struct gln_socket *socket, struct gln_socket *other) {
-    if(socket->direction == GLNS_INPUT) {
-	return gln_socket_connect(other, socket);
-    }
-    if(other->direction != GLNS_INPUT) {
-	errno = EINVAL;
-	return -1;
+    if(socket->direction != GLNS_OUTPUT) {
+	if(other->direction != GLNS_OUTPUT) {
+	    errno = EINVAL;
+	    return -1;
+	}
+	struct gln_socket *tmp = socket;
+	socket = other;
+	other = tmp;
+    } else {
+	if(other->direction != GLNS_INPUT) {
+	    errno = EINVAL;
+	    return -1;
+	}
     }
 
     struct arcp_weakref *socket_weakref = arcp_weakref_phantom(socket);
@@ -517,7 +524,13 @@ static void __destroy_gln_buffer(struct gln_buffer *buffer) {
 
 void *gln_alloc_buffer(struct gln_socket *socket, size_t size) {
     size += GLN_BUFFER_OVERHEAD;
-    struct gln_buffer *buffer = amalloc(size);
+    struct gln_buffer *buffer = (struct gln_buffer *) arcp_load_phantom(&socket->buffer);
+    if(buffer != NULL
+       && buffer->destroy == (void (*)(struct arcp_region *)) __destroy_gln_buffer
+       && buffer->size == size) {
+	return &buffer->data;
+    }
+    buffer = amalloc(size);
     if(buffer == NULL) {
 	return NULL;
     }
@@ -526,6 +539,11 @@ void *gln_alloc_buffer(struct gln_socket *socket, size_t size) {
     arcp_store(&socket->buffer, buffer);
     arcp_release(buffer);
     return &buffer->data;
+}
+
+void gln_set_buffer(struct gln_socket *socket, void *buffer) {
+    struct gln_buffer *glnbuffer = (struct gln_buffer *) (buffer - offsetof(struct gln_buffer, data));
+    arcp_store(&socket->buffer, glnbuffer);
 }
 
 int gln_get_buffers(int count, ...) {

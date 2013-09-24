@@ -31,9 +31,9 @@ libgraphlineinclude_HEADERS = include/graphline.h
 pkgconfigdir = $(libdir)/pkgconfig
 nodist_pkgconfig_DATA = graphline.pc
 
-check_PROGRAMS = test
-test_SOURCES = src/test.c
-test_LDADD = $(ATOMICKIT_LIBS) -lgraphline
-test_LDFLAGS = $(LD_FLAGS) -rpath $(libdir)
-test_CFLAGS = $(CFLAGS) $(ATOMICKIT_CFLAGS) -fplan9-extensions -Og -g3 -Wall -Wextra -Wmissing-prototypes -Wredundant-decls -Iinclude
-TESTS = test
+check_PROGRAMS = unittest
+unittest_SOURCES = src/test.c
+unittest_LDADD = $(ATOMICKIT_LIBS) -lgraphline
+unittest_LDFLAGS = $(LD_FLAGS) -rpath $(libdir)
+unittest_CFLAGS = $(CFLAGS) $(ATOMICKIT_CFLAGS) -fplan9-extensions -Og -g3 -Wall -Wextra -Wmissing-prototypes -Wredundant-decls -Iinclude
+TESTS = unittest

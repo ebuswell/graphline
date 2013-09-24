@@ -91,6 +91,8 @@ struct gln_buffer {
 
 void *gln_alloc_buffer(struct gln_socket *socket, size_t size);
 
+void gln_set_buffer(struct gln_socket *socket, void *buffer);
+
 /* use these to initiate processing */
 /* the first is a convenience interface to the second */
 int gln_get_buffers(int count, ...);
