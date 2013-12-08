@@ -17,24 +17,9 @@
  * You should have received a copy of the GNU General Public License
  * along with Graphline.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "config.h"
-
-#ifdef HAVE_ALLOCA_H
-# include <alloca.h>
-#elif defined __GNUC__
-# define alloca __builtin_alloca
-#elif defined _AIX
-# define alloca __alloca
-#elif defined _MSC_VER
-# include <malloc.h>
-# define alloca _alloca
-#else
-# include <stddef.h>
-void *alloca(size_t);
-#endif
-
 #include <errno.h>
 #include <stdarg.h>
+#include <alloca.h>
 #include <atomickit/atomic-array.h>
 #include <atomickit/atomic-rcp.h>
 #include <atomickit/atomic-queue.h>
