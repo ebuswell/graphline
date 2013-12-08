@@ -712,7 +712,7 @@ retry_acquire_connections:
 	    struct gln_node *next = (struct gln_node *) aqueue_deq(&graph->proc_queue);
 	    if(next == NULL) {
 		/* This becomes a spinlock waiting on other threads to finish processing... */
-		cpu_relax();
+		cpu_yield();
 		continue;
 	    }
 	    r = next->process(next);
